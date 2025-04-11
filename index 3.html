@@ -1,0 +1,177 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Költségfigyelő</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 2rem;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+    }
+    form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+      justify-content: space-between;
+    }
+    input, select, button {
+      padding: 10px;
+      flex: 1 1 180px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+      text-align: left;
+    }
+    .summary {
+      margin-top: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Költségfigyelő</h1>
+
+  <form id="expense-form">
+    <select id="type">
+      <option value="Kiadás">Kiadás</option>
+      <option value="Bevétel">Bevétel</option>
+    </select>
+    <input type="date" id="date" required>
+    <input type="number" id="amount" placeholder="Összeg (Ft)" required>
+    <select id="main-category" required>
+      <option value="">Főkategória</option>
+      <option value="Élelmiszer">Élelmiszer</option>
+      <option value="Közlekedés">Közlekedés</option>
+      <option value="Lakhatás">Lakhatás</option>
+      <option value="Egyéb">Egyéb</option>
+    </select>
+    <select id="sub-category" required>
+      <option value="">Alkategória</option>
+    </select>
+    <input type="text" id="desc" placeholder="Leírás" required>
+    <button type="submit">Hozzáadás</button>
+  </form>
+
+  <table id="expense-table">
+    <thead>
+      <tr>
+        <th>Dátum</th>
+        <th>Típus</th>
+        <th>Összeg</th>
+        <th>Kategória</th>
+        <th>Alkategória</th>
+        <th>Leírás</th>
+        <th>Törlés</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="summary">
+    <p><strong>Egyenleg:</strong> <span id="balance">0</span> Ft</p>
+    <button onclick="downloadCSV()">CSV letöltése</button>
+  </div>
+
+  <script>
+    const form = document.getElementById('expense-form');
+    const tableBody = document.querySelector('#expense-table tbody');
+    const balanceElem = document.getElementById('balance');
+    const subCategorySelect = document.getElementById('sub-category');
+
+    let data = JSON.parse(localStorage.getItem('expenses')) || [];
+
+    const subCategories = {
+      "Élelmiszer": ["Nasi", "Zöldség", "Hús"],
+      "Közlekedés": ["Benzin", "Autópálya matrica"],
+      "Lakhatás": ["Rezsi", "Bérlet"],
+      "Egyéb": ["Ajándék", "Egyéb"]
+    };
+
+    document.getElementById("main-category").addEventListener("change", function() {
+      const selected = this.value;
+      subCategorySelect.innerHTML = '<option value="">Alkategória</option>';
+      if (subCategories[selected]) {
+        subCategories[selected].forEach(sub => {
+          const option = document.createElement("option");
+          option.value = sub;
+          option.textContent = sub;
+          subCategorySelect.appendChild(option);
+        });
+      }
+    });
+
+    function render() {
+      tableBody.innerHTML = "";
+      let balance = 0;
+
+      data.forEach((item, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.date}</td>
+          <td>${item.type}</td>
+          <td>${item.amount.toLocaleString()} Ft</td>
+          <td>${item.main}</td>
+          <td>${item.sub}</td>
+          <td>${item.desc}</td>
+          <td><button onclick="deleteItem(${index})">Törlés</button></td>
+        `;
+        tableBody.appendChild(row);
+        balance += item.type === "Bevétel" ? item.amount : -item.amount;
+      });
+
+      balanceElem.textContent = balance.toLocaleString();
+      localStorage.setItem("expenses", JSON.stringify(data));
+    }
+
+    function deleteItem(index) {
+      data.splice(index, 1);
+      render();
+    }
+
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const newItem = {
+        type: document.getElementById("type").value,
+        date: document.getElementById("date").value,
+        amount: parseFloat(document.getElementById("amount").value),
+        main: document.getElementById("main-category").value,
+        sub: document.getElementById("sub-category").value,
+        desc: document.getElementById("desc").value
+      };
+      data.push(newItem);
+      form.reset();
+      render();
+    });
+
+    function downloadCSV() {
+      let csv = "Dátum,Típus,Összeg,Kategória,Alkategória,Leírás\n";
+      data.forEach(item => {
+        csv += `${item.date},${item.type},${item.amount},${item.main},${item.sub},${item.desc}\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "koltsegek.csv";
+      link.click();
+    }
+
+    render();
+  </script>
+
+</body>
+</html>
